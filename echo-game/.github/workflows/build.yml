@@ -1,0 +1,58 @@
+name: Build and release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag, e.g. 1.0"
+        required: true
+        default: "1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pyinstaller pygame
+      - run: pyinstaller --windowed --name Echo echo.py
+      - run: cd dist && zip -ry Echo-mac-mseries.zip Echo.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/Echo-mac-mseries.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pyinstaller pygame
+      - run: pyinstaller --onefile --windowed --name Echo echo.py
+      - run: Compress-Archive -Path dist/Echo.exe -DestinationPath dist/Echo-windows.zip
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/Echo-windows.zip
+
+  release:
+    needs: [mac, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Echo ${{ github.event.inputs.version }}
+          files: |
+            Echo-mac-mseries.zip
+            Echo-windows.zip
